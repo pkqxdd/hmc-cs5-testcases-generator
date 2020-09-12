@@ -7,7 +7,7 @@ Getting tired of having to copy and paste every single example into your code ju
 Before running the program, you must install the required dependencies first by running
 
 ```sh
-python3 -m pip install requests
+python3 -m pip install requests, bs4
 ```
 
 ## Test case generation
