@@ -1,6 +1,9 @@
 import requests, bs4, re, sys, os, textwrap
 
-link = input('Please enter homework page URL: ')
+if len(sys.argv) == 2:
+    link = sys.argv[1]
+else:
+    link = input('Please enter homework page URL: ')
 
 print = lambda *args, **kwargs: __builtins__.print(*args, **kwargs, flush=True, file=sys.stderr)
 
@@ -47,15 +50,15 @@ for i, block in enumerate(soup.find('div', {'class': 'main'})):
             try:
                 pre_text = block.code.text.strip()
             except TypeError:
-                pre_text=''
+                pre_text = ''
         subproblems[-1].append(pre_text)
-    elif block.name=='code':
+    elif block.name == 'code':
         pre_text = block.text.strip()
         if not pre_text:
             try:
                 pre_text = block.pre.text.strip()
             except TypeError:
-                pre_text=''
+                pre_text = ''
         subproblems[-1].append(pre_text)
 
 if len(subproblems[-1]) == 1:
@@ -63,8 +66,15 @@ if len(subproblems[-1]) == 1:
 
 out_content = \
     f"""
-import unittest
-from {file_name[:-3]} import *
+import unittest, sys, os
+sys.path.append(os.path.abspath(os.getcwd()))
+
+try:
+    from {file_name[:-3]} import *
+except ImportError:
+    print("Unable to find {file_name}. Please make sure it is either in the current working directory"
+          "or is in the same directory as this script.", file=sys.stdout, flush=True)
+    sys.exit(1)
 """
 
 for i, subproblem in enumerate(subproblems):
@@ -99,8 +109,8 @@ for i, subproblem in enumerate(subproblems):
             block_out += f'    def test_test{j}(self):\n'
             block_out += ' ' * 8 + 'try:\n'
             block_out += textwrap.indent(pre_out, ' ' * 12)
-            block_out += ' ' * 8 + 'except NameError:\n'
-            block_out += ' ' * 12 + 'self.skipTest("Not implemented")\n\n'
+            block_out += ' ' * 8 + 'except NameError as e:\n'
+            block_out += ' ' * 12 + 'self.skipTest(e.args[0])\n\n'
     
     if block_out:
         out_content += f"\n\nclass {re.sub(r'[^a-zA-Z0-9]', '', subproblem[0]).capitalize()}(unittest.TestCase):\n"
@@ -114,7 +124,7 @@ f.write("""
 
 
 if __name__ == '__main__':
-    unittest.main()
+    unittest.main(verbosity=2)
 """)
 f.close()
 print('File wrote to ' + os.path.join(os.getcwd(), file_name_to_write))
