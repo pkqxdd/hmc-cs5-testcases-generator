@@ -12,7 +12,7 @@ print = lambda *args, **kwargs: __builtins__.print(*args, **kwargs, flush=True, 
 
 
 def is_ipython(line):
-    return re.search(r'(?:In ?\[\d{1,}\]|Out ?\[\d{1,}\])', line, re.I) is not None
+    return re.search(r'(?:In ?\[\d{1,}\]|Out ?\[\d{1,}\])', line, re.I|re.M) is not None
 
 
 def remove_comments(line):
@@ -87,30 +87,33 @@ for i, subproblem in enumerate(subproblems):
         stack = []
         counter = 0
         pre_out = ''
-        for line in pre.splitlines():
-            if is_ipython(line):
-                code, type = extract_code(remove_comments(line))
-                if type == 'In':
-                    print(f'Test case {counter} expected input: ' + code)
-                    stack.append(code)
+        if is_ipython(pre):
+            for line in pre.splitlines():
+                if is_ipython(line):
+                    code, type = extract_code(remove_comments(line))
+                    if type == 'In':
+                        print(f'Test case {counter} expected input: ' + code)
+                        stack.append(code)
+                    else:
+                        print(f'Test case {counter} expected output: ' + code + '\n')
+                        
+                        tmp = []
+                        tmp.append(f'self.assertEqual({stack.pop()}, {code})')
+                        tmp.extend(stack)
+                        assertion = '\n'.join(tmp[::-1])
+                        
+                        pre_out += assertion + '\n'
+                        counter += 1
+                        stack = []
                 else:
-                    print(f'Test case {counter} expected output: ' + code + '\n')
-                    
-                    tmp = []
-                    tmp.append(f'self.assertEqual({stack.pop()}, {code})')
-                    tmp.extend(stack)
-                    assertion = '\n'.join(tmp[::-1])
-                    
-                    pre_out += assertion + '\n'
-                    counter += 1
-                    stack = []
-        
-        if pre_out:
-            block_out += f'    def test_test{j}(self):\n'
-            block_out += ' ' * 8 + 'try:\n'
-            block_out += textwrap.indent(pre_out, ' ' * 12)
-            block_out += ' ' * 8 + 'except NameError as e:\n'
-            block_out += ' ' * 12 + 'self.skipTest(e.args[0])\n\n'
+                    pre_out+=line+'\n'
+            
+            if pre_out:
+                block_out += f'    def test_test{j}(self):\n'
+                block_out += ' ' * 8 + 'try:\n'
+                block_out += textwrap.indent(pre_out, ' ' * 12)
+                block_out += ' ' * 8 + 'except NameError as e:\n'
+                block_out += ' ' * 12 + 'self.skipTest(e.args[0])\n\n'
     
     if block_out:
         out_content += f"\n\nclass {re.sub(r'[^a-zA-Z0-9]', '', subproblem[0]).capitalize()}(unittest.TestCase):\n"
